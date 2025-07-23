@@ -1,0 +1,121 @@
+---
+title: "Analysis of Labour Force Participation in Sri Lanka (2010-2014)"
+author: "MSC DSA 187"
+date: "2025-07-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+This report analyzes Sri Lanka's labor force participation from 2010 to 2014, based on data from a government source. The dataset contains labor participation numbers and rates for the entire country, as well as for each province and district. The objective of this analysis is to explore national trends and regional differences in labor engagement over this five-year period.
+
+Dataset was downloaded form <https://data.gov.lk/dataset/labour-force-participation-province-and-district-2010-2014>
+
+### Loading and Prepare the Data
+
+```{r}
+# Load the tidyverse library for data manipulation and plotting
+library(tidyverse)
+
+# Read the dataset. 'na.strings = "-"' tells R to treat dashes as missing data.
+labour_data <- read.csv("Labour force participation by province and district 2010-2014.csv", na.strings = "-")
+
+# Rename columns to be shorter and easier to work with
+colnames(labour_data) <- c("Region", "LF_2010", "Rate_2010", "LF_2011", "Rate_2011", "LF_2012", "Rate_2012", "LF_2013", "Rate_2013", "LF_2014", "Rate_2014")
+
+# Trim whitespace from the Region column to fix matching errors
+labour_data <- labour_data %>%
+  mutate(Region = str_trim(Region))
+
+# Reshape the data from a wide format to a long format, which is better for ggplot2.
+# We only grab the columns with participation rates.
+data_long <- labour_data %>%
+  select(Region, starts_with("Rate")) %>%
+  pivot_longer(
+    cols = -Region,
+    names_to = "Year",
+    values_to = "Participation_Rate"
+  ) %>%
+  # Extract the 4-digit year from the column name
+  mutate(Year = as.numeric(stringr::str_extract(Year, "\\d{4}"))) %>%
+  na.omit() # Remove rows with missing rates
+```
+
+###  Plot 1: National Trend Over Time
+
+```{r}
+# Filter for only the national data for Sri Lanka
+sri_lanka_trend <- data_long %>%
+  filter(Region == "Sri Lanka")
+
+# Create the plot
+ggplot(data = sri_lanka_trend, aes(x = Year, y = Participation_Rate)) +
+  geom_line(color = "dodgerblue", size = 1) +
+  geom_point(color = "dodgerblue", size = 3) +
+  labs(
+    title = "Sri Lanka's National Labour Force Participation (2010-2014)",
+    y = "Participation Rate (%)",
+    x = "Year"
+  ) +
+  theme_minimal() +
+  # Ensure years are shown as whole numbers
+  scale_x_continuous(breaks = 2010:2014)
+```
+
+**Interpretation:** The national participation rate shows minor fluctuations over the five-year period but remains relatively stable, hovering around 53%. It begins at 53.4%, sees a slight dip in 2012 to 52.6%, and ends at 53.3% in 2014. The key insight is that, at a national level, there was no significant growth or decline in labor force participation during this time.
+
+The given chart displays the overall labor force participation rate for Sri Lanka from 2010 to 2014
+
+### Plot 2: Provincial Comparison
+
+```{r}
+# Get a list of the main provinces
+provinces <- c("Western", "Central", "Southern", "Northern", "Eastern", "North-western", "North-central", "Uva", "Sabaragamuwa")
+
+# Filter for province-level data
+province_data <- data_long %>%
+  filter(Region %in% provinces)
+
+# Create the bar chart
+ggplot(data = province_data, aes(x = reorder(Region, Participation_Rate), y = Participation_Rate, fill = Region)) +
+  geom_bar(stat = "summary", fun = "mean") +
+  coord_flip() + # Flips the axes to make labels easier to read
+  labs(
+    title = "Average Labour Force Participation by Province (2010-2014)",
+    x = "Province",
+    y = "Average Participation Rate (%)"
+  ) +
+  theme_minimal() +
+  guides(fill = "none") # Hide the legend since the labels are on the axis
+```
+
+**Interpretation:** There is a significant regional disparity in economic engagement. The Uva and North-central provinces have the highest average participation rates, both over 60%. In stark contrast, the Northern and Eastern provinces have the lowest rates, both under 50%. This plot effectively highlights that labor participation is not uniform across the country.
+
+This bar chart compares the average labor force participation rates across Sri Lanka's nine provinces for the period 2010-2014.
+
+### Plot 3: District-Level Detail in a High-Participation Province
+
+```{r}
+# Filter for the districts within the Uva province
+uva_districts <- data_long %>%
+  filter(Region %in% c("Badulla", "Moneragala"))
+
+# Create the line plot
+ggplot(data = uva_districts, aes(x = Year, y = Participation_Rate, color = Region)) +
+  geom_line(size = 1) +
+  labs(
+    title = "Labour Participation in Uva Province Districts (2010-2014)",
+    y = "Participation Rate (%)",
+    x = "Year",
+    color = "District" # Renames the legend title
+  ) +
+  theme_minimal()
+```
+
+**Interpretation:** Even within a province with high overall participation, there are notable local differences. Moneragala district consistently shows a higher participation rate than Badulla district throughout the entire five-year period. This reveals a deeper layer of insight that provincial averages can sometimes mask.
+
+This plot drills down into the Uva province (which the second plot identified as a high-performer) and compares the participation rates of its two districts, Badulla and Moneragala, from 2010 to 2014.
